@@ -4,6 +4,8 @@
   <requires lib="gtk+" version="3.0"/>
   <object class="GtkWindow" id="MainWindow">
     <property name="can_focus">False</property>
+    <property name="default_width">800</property>
+    <property name="default_height">400</property>
     <child>
       <object class="GtkPaned" id="paned1">
         <property name="visible">True</property>
@@ -19,6 +21,8 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="activate" handler="open" swapped="no"/>
+                <signal name="clicked" handler="open" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -54,6 +58,9 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="image_position">bottom</property>
+                <signal name="activate" handler="capture" swapped="no"/>
+                <signal name="clicked" handler="capture" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>

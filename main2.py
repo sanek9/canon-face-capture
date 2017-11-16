@@ -38,6 +38,7 @@ class BackGroundSubtractor:
 
 		return cv2.absdiff(self.backGroundModel.astype(np.uint8),frame)
 
+	
 class Camera:
     def open(self):
 	self.cam = cv2.VideoCapture(0)
@@ -52,6 +53,7 @@ class Camera:
     def capture(self):
 	self.cam = cv2.VideoCapture(0)
 	ret, frame = self.cam.read()
+	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 	self.cam.release()
 	return frame
 
@@ -114,28 +116,46 @@ class HellowWorldGTK:
 	foreGround = self.backSubtractor.getForeground(self.denoise(frame))
 	ret, mask = cv2.threshold(foreGround, 15, 255, cv2.THRESH_BINARY)
 	mask = cv2.convertScaleAbs(mask)
-#	mask = cv2.cvtColor(mask,cv2.COLOR_GRAY2BGR)
+	mask = cv2.cvtColor(mask,cv2.COLOR_RGB2GRAY)
 	face_locations = face_recognition.face_locations(frame)
+	
+
+
+	mask_inv = cv2.bitwise_not(mask)
+
+	white = np.ones(frame.shape, frame.dtype)*255
+	white = cv2.bitwise_and(white,white,mask = mask_inv)
+
+	
+	fg = cv2.bitwise_and(frame, frame, mask=mask)
+	res = cv2.add(fg,white)
+
+	res = self.denoise(res)
+#	res = cv2.medianBlur(res,11)
+#	res = cv2.GaussianBlur(res,(7,7),0)
+#	res = cv2.bitwise_and(res,res,mask = mask_inv)
+#	res = cv2.add(fg,res)
+
 	for face in face_locations:
-		(top, right, bottom, left) = face
-#		top *= 4
-#		right *= 4
-#		bottom *= 4
-#		left *= 4
-
-		cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+		(y1, x2, y2, x1) = face
+#		ratio = 15.0/21.0
+#		scale = 1.3
+		
+		width = x2-x1
+		hight = y2-y1
+		fx1 = int(x1-width*0.5)
+		fx2 = int(x2+width*0.5)
+		fy1 = int(y1-hight*0.6)
+#		fy2 = int((fx2-fx1)*(4/3))		
+		fy2 = int(y2+hight*0.8)
+		fw = fx2-fx1
+		fh = fy2-fy1
+		print(str(fw)+' '+str(fh)+' '+str(fw/fh))
+		cv2.rectangle(res, (x1, y1), (x2, y2), (0, 0, 255), 2)
+		cv2.rectangle(res, (fx1, fy1), (fx2, fy2), (0, 0, 255), 2)
 		print(face)
-
-#	cv2.rectangle(frame, (x1, y1), (x2, y2), (255,0,0), 2)
 	
-
-#	background = np.full(img.shape, 255, dtype=np.uint8)
-	mask = cv2.bitwise_not(mask)
-	print(frame.dtype)
-#	fg = cv2.bitwise_or(frame, frame, mask=mask)
-	print(mask.dtype)
-	
-	pb = GdkPixbuf.Pixbuf.new_from_data(mask.tostring(),
+	pb = GdkPixbuf.Pixbuf.new_from_data(res.tostring(),
 		                        GdkPixbuf.Colorspace.RGB,
 		                        False,
 		                        8,

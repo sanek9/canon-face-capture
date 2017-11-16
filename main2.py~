@@ -132,7 +132,7 @@ class HellowWorldGTK:
 #	background = np.full(img.shape, 255, dtype=np.uint8)
 	mask = cv2.bitwise_not(mask)
 	print(frame.dtype)
-#	fg = cv2.bitwise_or(frame, frame, mask=mask)
+	fg = cv2.bitwise_or(frame, frame, mask=mask)
 	print(mask.dtype)
 	
 	pb = GdkPixbuf.Pixbuf.new_from_data(mask.tostring(),

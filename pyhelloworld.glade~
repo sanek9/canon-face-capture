@@ -37,7 +37,6 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <signal name="activate" handler="background" swapped="no"/>
-                <signal name="clicked" handler="background" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>

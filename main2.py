@@ -11,6 +11,7 @@ import face_recognition
 import numpy as np
 
 import gphoto2 as gp
+import math
 class BackGroundSubtractor:
 	# When constructing background subtractor, we
 	# take in two arguments:
@@ -43,7 +44,6 @@ class Camera:
     def open(self):
 	self.cam = cv2.VideoCapture(0)
 	ret, frame = self.cam.read()
-	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 	self.cam.release()
 #	self.camera = gp.check_result(gp.gp_camera_new())
 #	gp.check_result(gp.gp_camera_init(self.camera))
@@ -78,6 +78,52 @@ class CannonCamera:
 	color = Image.open(target)
 	img = np.array(color, 'uint8')
 	return img
+class FaceCutter:
+    def __init__(self):
+	self.ratio = 3.0/4.0
+	self.scale = 1.6
+	self.xx = 0.0
+	self.yy = 0.2
+
+    def cut(self, frame):
+	face_locations = face_recognition.face_locations(frame)
+	ratio = self.ratio
+	scale = self.scale
+	xx = self.xx
+	yy = self.yy
+	photos = []
+	rects = []
+		
+	for face in face_locations:
+		(y1, x2, y2, x1) = face
+		w = x2-x1
+		h = y2-y1
+		
+		fi = math.atan(ratio)
+		c = scale*w
+		
+		a = math.sin(fi)*c
+		b = math.cos(fi)*c
+		
+		x = (x1 + w/2) + (a-w/2)*xx
+		y = (y1 + h/2) + (b-h/2)*yy
+		
+		fx1 = int(x - a)
+		fx2 = int(x + a)
+		fy1 = int(y - b)		
+		fy2 = int(y + b)
+		fw = fx2-fx1
+		fh = fy2-fy1
+		print(str(fw)+' '+str(fh)+' '+str(fw/fh))
+	#	return frame[fy1:fy2, fx1:fx2]
+	#	cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+	#	cv2.rectangle(frame, (fx1, fy1), (fx2, fy2), (0, 0, 255), 2)
+	#	print(face)
+	#	return frame
+		photos.append(frame[fy1:fy2, fx1:fx2])
+		rects.append(((fx1, fy1), (fx2, fy2)))
+	return rects, photos
+
 class HellowWorldGTK:
 
     def __init__(self):
@@ -86,12 +132,15 @@ class HellowWorldGTK:
         self.glade = Gtk.Builder()
         self.glade.add_from_file(self.gladefile)
 	self.image_view = self.glade.get_object("image")
+	self.image_cut = self.glade.get_object("image1")
         self.glade.connect_signals(self)
         self.win = self.glade.get_object("MainWindow")
 #	self.add(self.win)
 	self.win.connect("delete-event", self.on_MainWindow_delete_event)
 	self.win.show_all()
 	self.cam = Camera()
+	self.cutter = FaceCutter()
+
 	self.backSubtractor = BackGroundSubtractor(0.01,self.denoise(self.cam.capture()))
     def on_MainWindow_delete_event(self, widget, event):
 	self.cam.close()
@@ -116,8 +165,8 @@ class HellowWorldGTK:
 	foreGround = self.backSubtractor.getForeground(self.denoise(frame))
 	ret, mask = cv2.threshold(foreGround, 15, 255, cv2.THRESH_BINARY)
 	mask = cv2.convertScaleAbs(mask)
+	msk = mask
 	mask = cv2.cvtColor(mask,cv2.COLOR_RGB2GRAY)
-	face_locations = face_recognition.face_locations(frame)
 	
 
 
@@ -131,38 +180,36 @@ class HellowWorldGTK:
 	res = cv2.add(fg,white)
 
 	res = self.denoise(res)
-#	res = cv2.medianBlur(res,11)
-#	res = cv2.GaussianBlur(res,(7,7),0)
-#	res = cv2.bitwise_and(res,res,mask = mask_inv)
-#	res = cv2.add(fg,res)
 
-	for face in face_locations:
-		(y1, x2, y2, x1) = face
-#		ratio = 15.0/21.0
-#		scale = 1.3
-		
-		width = x2-x1
-		hight = y2-y1
-		fx1 = int(x1-width*0.5)
-		fx2 = int(x2+width*0.5)
-		fy1 = int(y1-hight*0.6)
-#		fy2 = int((fx2-fx1)*(4/3))		
-		fy2 = int(y2+hight*0.8)
-		fw = fx2-fx1
-		fh = fy2-fy1
-		print(str(fw)+' '+str(fh)+' '+str(fw/fh))
-		cv2.rectangle(res, (x1, y1), (x2, y2), (0, 0, 255), 2)
-		cv2.rectangle(res, (fx1, fy1), (fx2, fy2), (0, 0, 255), 2)
-		print(face)
-	
-	pb = GdkPixbuf.Pixbuf.new_from_data(res.tostring(),
+
+#	rects , res = self.cutter.cut(frame)
+	rects , _ = self.cutter.cut(frame)
+	print(res)
+	(x1, y1), (x2,y2) = rects[0]
+	res = res[y1:y2, x1:x2]
+#	res = res[0]
+	for d1, d2 in rects:
+		cv2.rectangle(frame, d1, d2, (0, 0, 255), 2)
+
+	pbf = GdkPixbuf.Pixbuf.new_from_data(frame.tostring(),
 		                        GdkPixbuf.Colorspace.RGB,
 		                        False,
 		                        8,
 		                        frame.shape[1],
 		                        frame.shape[0],
 		                        frame.shape[2]*frame.shape[1])
-	self.image_view.set_from_pixbuf(pb.copy())
+	self.image_view.set_from_pixbuf(pbf.copy())
+	pb = GdkPixbuf.Pixbuf.new_from_data(res.tostring(),
+		                        GdkPixbuf.Colorspace.RGB,
+		                        False,
+		                        8,
+		                        res.shape[1],
+		                        res.shape[0],
+		                        res.shape[2]*res.shape[1])
+	self.image_cut.set_from_pixbuf(pb.copy())
+	
+    def save(self, button):
+	print("save")
 
     def face_cut(self, img):
 
